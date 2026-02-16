@@ -1,0 +1,15 @@
+# Streamlit Cloud デプロイ用システムパッケージ
+# WeasyPrint 依存ライブラリ
+libffi-dev
+libssl-dev
+libpango-1.0-0
+libpango1.0-dev
+gsfonts
+libfpx-dev
+libfreetype6-dev
+libjpeg-turbo-utils
+libjpeg-dev
+libmagic-dev
+libpixman-1-dev
+libpng-dev
+zlib1g-dev
