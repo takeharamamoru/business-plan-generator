@@ -6,6 +6,10 @@
 import sys
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Encoding fix
 sys.stdout.reconfigure(encoding='utf-8')

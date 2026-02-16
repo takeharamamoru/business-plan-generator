@@ -4,6 +4,7 @@ import streamlit as st
 import threading
 import time
 from pathlib import Path
+from anthropic import BadRequestError, APIConnectionError, RateLimitError
 
 from ui.sidebar import render_sidebar
 from ui.progress import render_progress
@@ -51,6 +52,46 @@ def generate_business_plan(context: dict) -> None:
         st.session_state.is_generating = False
         st.session_state.generation_error = None
         
+    except BadRequestError as e:
+        # Handle API request errors (invalid input, insufficient credits, etc.)
+        error_msg = str(e)
+        
+        if "credit balance is too low" in error_msg.lower():
+            st.session_state.generation_error = {
+                "type": "insufficient_credits",
+                "message": "APIクレジットの残高が不足しています。",
+                "details": "https://console.anthropic.com/account/billing/overview でクレジットを追加してください。"
+            }
+        elif "invalid_request_error" in error_msg.lower():
+            st.session_state.generation_error = {
+                "type": "api_request_error",
+                "message": "APIリクエストエラーが発生しました。",
+                "details": error_msg
+            }
+        else:
+            st.session_state.generation_error = {
+                "type": "api_error",
+                "message": "APIエラーが発生しました。",
+                "details": error_msg
+            }
+        st.session_state.is_generating = False
+        
+    except RateLimitError as e:
+        st.session_state.generation_error = {
+            "type": "rate_limit_error",
+            "message": "API呼び出し回数の制限に達しました。",
+            "details": "しばらく待ってからリトライしてください。"
+        }
+        st.session_state.is_generating = False
+        
+    except APIConnectionError as e:
+        st.session_state.generation_error = {
+            "type": "connection_error",
+            "message": "APIに接続できません。",
+            "details": str(e)
+        }
+        st.session_state.is_generating = False
+        
     except ValueError as e:
         # Handle API key missing error
         st.session_state.generation_error = {
@@ -70,7 +111,8 @@ def generate_business_plan(context: dict) -> None:
         # Handle unexpected errors
         st.session_state.generation_error = {
             "type": "unknown_error",
-            "message": f"{type(e).__name__}: {str(e)}"
+            "message": f"予期しないエラーが発生しました: {type(e).__name__}",
+            "details": str(e)
         }
         st.session_state.is_generating = False
 
@@ -272,9 +314,27 @@ def main():
         if isinstance(error_info, dict):
             error_type = error_info.get("type", "unknown_error")
             error_msg = error_info.get("message", "不明なエラー")
+            error_details = error_info.get("details", "")
             
             # Display error based on type
-            if error_type == "api_key_error":
+            if error_type == "insufficient_credits":
+                st.error("❌ APIクレジット不足")
+                st.markdown(f"""
+                ### 原因
+                Anthropic API のクレジット残高が不足しています。
+
+                ### 対応方法
+                1. [Anthropic Console - Billing](https://console.anthropic.com/account/billing/overview) にアクセス
+                2. **Plans & Billing** セクションで残高確認
+                3. クレジットを追加（購入）
+                4. このアプリを再起動して再度実行
+                
+                ### 参考
+                - 1回の事業計画書生成：約 $0.40～$0.50
+                - 初回ユーザーは無料トライアル枠がある場合があります
+                """)
+                
+            elif error_type == "api_key_error":
                 st.error("❌ APIキーが設定されていません")
                 st.markdown("""
                 以下のいずれかの方法で ANTHROPIC_API_KEY を設定してください：
@@ -298,6 +358,29 @@ def main():
                 🔗 API キーは [https://console.anthropic.com](https://console.anthropic.com) から取得できます。
                 """)
                 
+            elif error_type == "rate_limit_error":
+                st.error("⏱️ API呼び出し数が上限に達しました")
+                st.warning("""
+                API呼び出しの頻度制限に達しました。
+                
+                対応方法：
+                - 数分待ってからリトライしてください
+                - または、しばらく後に再度実行してください
+                """)
+                
+            elif error_type == "connection_error":
+                st.error("🌐 APIへの接続に失敗しました")
+                st.warning(f"""
+                Anthropic API に接続できません。
+                
+                確認事項：
+                - インターネット接続状態
+                - ファイアウォール設定
+                - Anthropic のサービスが利用可能か
+                
+                詳細: {error_details}
+                """)
+                
             elif error_type == "network_error":
                 st.error("🌐 ネットワークエラーが発生しました")
                 st.warning("""
@@ -309,7 +392,9 @@ def main():
                 
             else:
                 st.error(f"❌ エラーが発生しました")
-                st.code(error_msg, language="plaintext")
+                st.markdown(f"**エラー内容:** {error_msg}")
+                if error_details:
+                    st.code(error_details, language="plaintext")
         else:
             st.error(f"❌ 生成中にエラーが発生しました: {error_info}")
         
