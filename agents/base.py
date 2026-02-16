@@ -33,7 +33,8 @@ class BaseAgent(ABC):
         self.name = name
         self.role = role
         self.model = model
-        self.client = anthropic.Anthropic()
+        # Initialize Anthropic client with timeout (300 seconds = 5 minutes)
+        self.client = anthropic.Anthropic(timeout=300)
         
         # State management
         self.status: str = "waiting"  # "waiting" | "running" | "streaming" | "done" | "error"
@@ -122,7 +123,7 @@ class BaseAgent(ABC):
                         "以下のいずれかの方法で設定してください：\n"
                         "1. .env ファイルに ANTHROPIC_API_KEY=sk-ant-v1-... を追記\n"
                         "2. Streamlit Secret に ANTHROPIC_API_KEY を設定\n"
-                        "3. export ANTHROPIC_API_KEY=sk-ant-v1-... （環境変数）"
+                        "3. export ANTHROPIC_API_KEY=b-v1-... （環境変数）"
                     )
                     raise ValueError(self.error_message)
             except ValueError:

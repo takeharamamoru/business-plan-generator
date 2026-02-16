@@ -92,6 +92,14 @@ def generate_business_plan(context: dict) -> None:
         }
         st.session_state.is_generating = False
         
+    except TimeoutError as e:
+        st.session_state.generation_error = {
+            "type": "timeout_error",
+            "message": "生成処理がタイムアウトしました（5分以上かかっています）。",
+            "details": "入力内容を簡潔にして再度お試しください。"
+        }
+        st.session_state.is_generating = False
+        
     except ValueError as e:
         # Handle API key missing error
         st.session_state.generation_error = {
@@ -366,6 +374,19 @@ def main():
                 対応方法：
                 - 数分待ってからリトライしてください
                 - または、しばらく後に再度実行してください
+                """)
+                
+            elif error_type == "timeout_error":
+                st.error("⏱️ 生成処理がタイムアウトしました")
+                st.warning("""
+                事業計画書の生成が5分以上かかっており、タイムアウトしました。
+                
+                対応方法：
+                1. 企業説明をより簡潔に短くしてください
+                2. 計画期間を短縮してください（7年 → 3年など）
+                3. 再度実行してください
+                
+                通常は3～4分で完了します。
                 """)
                 
             elif error_type == "connection_error":
